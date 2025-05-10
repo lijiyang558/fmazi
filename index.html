@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebRTC 音视频通话</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    video, audio { width: 100%; max-width: 480px; border: 1px solid #ccc; margin-top: 10px; display: none; }
+    input, button, select { padding: 10px; margin: 5px 0; width: 100%; max-width: 480px; }
+    #log { white-space: pre-wrap; color: #555; font-size: 14px; margin-top: 10px; background: #f7f7f7; padding: 10px; border: 1px dashed #ccc; }
+
+    #incomingCallPopup {
+      display: none;
+      background: #fff;
+      border: 1px solid #333;
+      padding: 20px;
+      max-width: 300px;
+      position: fixed;
+      top: 30%;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    #incomingCallPopup button {
+      margin: 5px;
+      padding: 8px 16px;
+      width: auto;
+    }
+  </style>
+</head>
+<body>
+  <h2>我是用户：<span id="myid">加载中...</span></h2>
+  <input type="text" id="targetId" placeholder="对方ID">
+  <select id="callType">
+    <option value="video">视频通话</option>
+    <option value="audio">语音通话</option>
+  </select>
+  <button onclick="startCall()">📞 呼叫对方</button>
+  <button onclick="hangup()">🔴 挂断通话</button>
+
+  <video id="localVideo" autoplay muted playsinline></video>
+  <video id="remoteVideo" autoplay playsinline></video>
+  <audio id="remoteAudio" autoplay></audio>
+
+  <!-- 来电弹窗 -->
+  <div id="incomingCallPopup">
+    <p id="callerInfo">有用户呼叫你</p>
+    <button onclick="acceptCall()">✅ 接听</button>
+    <button onclick="rejectCall()">❌ 拒绝</button>
+  </div>
+
+  <div id="log"></div>
+
+  <script>
+    const socket = new WebSocket("wss://zzy.dz12.top/wss");
+    let myId = '';
+    let peer = null;
+    let localStream = null;
+    let remoteStream = null;
+    let incomingCall = null; // 来电信息
+
+    function log(msg) {
+      console.log(msg);
+      document.getElementById('log').textContent += msg + "\n";
+    }
+
+    function status(msg) {
+      document.getElementById('log').textContent += "🟢 " + msg + "\n";
+    }
+
+    socket.onopen = () => {
+      status("已连接到服务器 ✅");
+    };
+
+    socket.onmessage = async (e) => {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === 'init') {
+        myId = msg.uid;
+        document.getElementById('myid').innerText = myId;
+        status(`分配用户ID：${myId}`);
+      }
+
+      if (msg.type === 'error') {
+        alert("❗ 错误：" + msg.message);
+        status("❗ " + msg.message);
+        return;
+      }
+
+      if (msg.type === 'offer') {
+        incomingCall = msg;
+        document.getElementById('callerInfo').innerText = `📞 用户 ${msg.from} 正在呼叫你 (${msg.data.callType === 'video' ? '视频' : '语音'})`;
+        document.getElementById('incomingCallPopup').style.display = 'block';
+      }
+
+      if (msg.type === 'answer') {
+        status(`📩 收到 ${msg.from} 的应答`);
+        await peer.setRemoteDescription(new RTCSessionDescription(msg.data.offer));
+      }
+
+      if (msg.type === 'candidate') {
+        if (peer) {
+          await peer.addIceCandidate(new RTCIceCandidate(msg.data));
+        }
+      }
+
+      if (msg.type === 'hangup') {
+        status("📴 对方已挂断通话");
+        cleanup();
+      }
+    };
+
+    async function startCall() {
+      const target = document.getElementById('targetId').value;
+      const callType = document.getElementById('callType').value;
+      if (!target) {
+        alert("请输入对方ID");
+        return;
+      }
+      status(`正在呼叫用户：${target}（${callType === 'video' ? '视频' : '语音'}通话）`);
+      await createPeer(true, target, callType);
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      socket.send(JSON.stringify({
+        to: target,
+        type: 'offer',
+        data: { offer: offer, callType: callType }
+      }));
+    }
+
+    async function createPeer(initiator, targetId, callType) {
+      peer = new RTCPeerConnection();
+
+      if (callType === 'video') {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('localVideo').srcObject = localStream;
+        document.getElementById('localVideo').style.display = 'block';
+        document.getElementById('remoteVideo').style.display = 'block';
+        document.getElementById('remoteAudio').style.display = 'none';
+      } else {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        document.getElementById('localVideo').style.display = 'none';
+        document.getElementById('remoteVideo').style.display = 'none';
+        document.getElementById('remoteAudio').style.display = 'block';
+      }
+
+      localStream.getTracks().forEach(track => {
+        peer.addTrack(track, localStream);
+        console.log(`添加了一个轨道: ${track.kind}`);
+      });
+
+      peer.ontrack = (event) => {
+        remoteStream = event.streams[0];
+        if (callType === 'video') {
+          document.getElementById('remoteVideo').srcObject = remoteStream;
+          document.getElementById('remoteAudio').srcObject = null;
+        } else {
+          document.getElementById('remoteVideo').srcObject = null;
+          document.getElementById('remoteAudio').srcObject = remoteStream;
+        }
+        status("📺 已连接远程视频/音频");
+      };
+
+      peer.onicecandidate = (e) => {
+        if (e.candidate) {
+          socket.send(JSON.stringify({
+            to: targetId,
+            type: 'candidate',
+            data: e.candidate
+          }));
+        }
+      };
+
+      peer.onconnectionstatechange = () => {
+        status(`连接状态: ${peer.connectionState}`);
+      };
+    }
+
+    async function acceptCall() {
+      const msg = incomingCall;
+      document.getElementById('incomingCallPopup').style.display = 'none';
+      incomingCall = null;
+
+      const callType = msg.data.callType;
+      await createPeer(false, msg.from, callType);
+      await peer.setRemoteDescription(new RTCSessionDescription(msg.data.offer));
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      socket.send(JSON.stringify({
+        to: msg.from,
+        type: 'answer',
+        data: { offer: answer, callType: callType }
+      }));
+      status("📤 已接听并发送应答 (answer)");
+    }
+
+    function rejectCall() {
+      const msg = incomingCall;
+      document.getElementById('incomingCallPopup').style.display = 'none';
+      incomingCall = null;
+
+      socket.send(JSON.stringify({
+        to: msg.from,
+        type: 'hangup',
+        data: null
+      }));
+      status("❌ 已拒绝来电");
+    }
+
+    function hangup() {
+      if (peer) {
+        const target = document.getElementById('targetId').value;
+        socket.send(JSON.stringify({
+          to: target,
+          type: 'hangup',
+          data: null
+        }));
+        status("🔴 已挂断，发送 hangup 消息");
+        cleanup();
+      }
+    }
+
+    function cleanup() {
+      if (peer) {
+        peer.close();
+        peer = null;
+      }
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      document.getElementById('localVideo').srcObject = null;
+      document.getElementById('remoteVideo').srcObject = null;
+      document.getElementById('remoteAudio').srcObject = null;
+    }
+  </script>
+</body>
+</html>
