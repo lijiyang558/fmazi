@@ -1,0 +1,1 @@
+import{T as t}from"./tabbar-CFNzacpf.js";import{a,l as o,z as r,e as s,n as c}from"./index-Czz4VJdR.js";import"./index-Wq9BxejG.js";import"./interceptor-CfZAFJ_c.js";const i={class:"main-page"},u={__name:"quote",setup(m){return a({}),(n,e)=>(c(),o("div",i,[e[0]||(e[0]=r(" 行情 ")),s(t,{active:1})]))}};export{u as default};

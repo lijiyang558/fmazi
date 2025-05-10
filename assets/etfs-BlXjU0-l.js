@@ -1,0 +1,1 @@
+import{T as t}from"./tabbar-CFNzacpf.js";import{a,l as r,z as s,e as o,n as c}from"./index-Czz4VJdR.js";import"./index-Wq9BxejG.js";import"./interceptor-CfZAFJ_c.js";const i={class:"main-page"},d={__name:"etfs",setup(m){return a({}),(n,e)=>(c(),r("div",i,[e[0]||(e[0]=s(" etfs ")),o(t,{active:3})]))}};export{d as default};
