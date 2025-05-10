@@ -1,0 +1,1 @@
+import{at as r,az as p}from"./index-ByUJYt-R.js";function m(t,{args:l=[],done:i,canceled:s,error:a}){if(t){const f=t.apply(null,l);r(f)?f.then(o=>{o?i():s&&s()}).catch(a||p):f?i():s&&s()}else i()}export{m as c};

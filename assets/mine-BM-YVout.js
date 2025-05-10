@@ -1,0 +1,1 @@
+import{T as a}from"./tabbar-DgVzmPu7.js";import{a as t,l as r,z as o,e as s,n as i}from"./index-ByUJYt-R.js";import"./index-CZWr6KvQ.js";import"./interceptor-fXCBJxcf.js";const m={class:"main-page"},f={__name:"mine",setup(n){return t({}),(c,e)=>(i(),r("div",m,[e[0]||(e[0]=o(" mine ")),s(a,{active:5})]))}};export{f as default};

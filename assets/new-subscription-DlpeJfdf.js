@@ -1,0 +1,1 @@
+import{T as t}from"./tabbar-DgVzmPu7.js";import{a,l as r,z as s,e as o,n as i}from"./index-ByUJYt-R.js";import"./index-CZWr6KvQ.js";import"./interceptor-fXCBJxcf.js";const n={class:"main-page"},d={__name:"new-subscription",setup(c){return a({}),(p,e)=>(i(),r("div",n,[e[0]||(e[0]=s(" new-subscription ")),o(t,{active:4})]))}};export{d as default};
